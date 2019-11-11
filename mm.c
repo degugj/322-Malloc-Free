@@ -1,4 +1,7 @@
-/*-------------------------------------------------------------------                             
+/*-------------------------------------------------------------------
+ * Weishan Li, 30755725
+ * Jack Deguglielmo,      
+ *                        
  * Lab 5 Starter code:                                                                            
  *        single doubly-linked free block list with LIFO policy                                   
  *        with support for coalescing adjacent free blocks  
@@ -378,10 +381,24 @@ void* mm_malloc (size_t size) {
     reqSize = ALIGNMENT * ((size + ALIGNMENT - 1) / ALIGNMENT);
   }
 
+  /* ---------------------------------------------------------Wei started Coding Here---------------------------------------------------------------------*/
+  
+  //set freeBlock pointer to a free block with atleast required size
+  ptrFreeBlock = searchFreeList(reqSize);
+  if (ptrFreeBlock == NULL){
+  	// if no free block of required size
+  	printf("Free block of required size not found!");
+  	return NULL;
+  }
+
+  //set the block's header to required size and bit mask to declare used block
+  ptrFreeBlock->sizeAndTags = reqSize | TAG_USED;
+
+
   // Implement mm_malloc.  You can change or remove any of the above
   // code.  It is included as a suggestion of where to start.
   // You will want to replace this return statement...
-  return NULL; 
+  return ptrFreeBlock->next; 
 }
 
 /* Free the block referenced by ptr. */
