@@ -134,6 +134,7 @@ static void * searchFreeList(size_t reqSize) {
   BlockInfo* freeBlock;
 
   freeBlock = FREE_LIST_HEAD;
+  //printf("%d\n", SIZE(freeBlock->prev->sizeAndTags));
   while (freeBlock != NULL){
     if (SIZE(freeBlock->sizeAndTags) >= reqSize) {
       return freeBlock;
@@ -313,14 +314,14 @@ static void examine_heap() {
 int mm_init () {
   // Head of the free list.
   BlockInfo *firstFreeBlock;
-
+  printf("INITIALIZING\n");
   // Initial heap size: WORD_SIZE byte heap-header (stores pointer to head
   // of free list), MIN_BLOCK_SIZE bytes of space, WORD_SIZE byte heap-footer.
   size_t initSize = WORD_SIZE+MIN_BLOCK_SIZE+WORD_SIZE;
   size_t totalSize;
 
   void* mem_sbrk_result = mem_sbrk(initSize);
-  //  printf("mem_sbrk returned %p\n", mem_sbrk_result);
+  //printf("mem_sbrk returned %p\n", mem_sbrk_result);
   if ((ssize_t)mem_sbrk_result == -1) {
     printf("ERROR: mem_sbrk failed in mm_init, returning %p\n", 
            mem_sbrk_result);
@@ -381,18 +382,44 @@ void* mm_malloc (size_t size) {
     reqSize = ALIGNMENT * ((size + ALIGNMENT - 1) / ALIGNMENT);
   }
 
-  /* ---------------------------------------------------------Wei started Coding Here---------------------------------------------------------------------*/
+  /* ---------------------------------------------------------Started Coding Here---------------------------------------------------------------------*/
   
-  //set freeBlock pointer to a free block with atleast required size
+  // set freeBlock pointer to a free block with atleast required size
+  printf("reqSize:%d\n", reqSize);
+  printf("minBlockSize:%d\n", MIN_BLOCK_SIZE);
   ptrFreeBlock = searchFreeList(reqSize);
   if (ptrFreeBlock == NULL){
   	// if no free block of required size
-  	printf("Free block of required size not found!");
-  	return NULL;
+  	requestMoreSpace(reqSize);
+  	ptrFreeBlock = searchFreeList(reqSize);
+  	examine_heap();
+  	
+  	//printf("%d\n", SIZE(ptrFreeBlock->sizeAndTags));
+  	//printf("Free block of required size not found!");
   }
-
+  printf("adklfjeioajdklfa \n");
+  blockSize = SIZE(ptrFreeBlock->sizeAndTags);
   //set the block's header to required size and bit mask to declare used block
+
   ptrFreeBlock->sizeAndTags = reqSize | TAG_USED;
+  
+  size_t difference = blockSize - reqSize;
+  requestMoreSpace(difference);
+
+  // BlockInfo* newFreeBlock;
+  // printf("%d\n", newFreeBlock->sizeAndTags);
+  // newFreeBlock->sizeAndTags = blockSize - reqSize;
+  // printf("afterSIZEANDTAGS\n");
+  // insertFreeBlock(newFreeBlock);
+  // printf("INSERTBLOCK\n");
+  // requestMoreSpace(blockSize-reqSize);
+  
+  //ptrFreeBlock->next = NULL;
+  //ptrFreeBlock->prev = FREE_LIST_HEAD;
+  examine_heap();
+  // ptrFreeBlock = searchFreeList(reqSize);
+  // printf("newHeadSize:%d", ptrFreeBlock->sizeAndTags);
+  
 
 
   // Implement mm_malloc.  You can change or remove any of the above
