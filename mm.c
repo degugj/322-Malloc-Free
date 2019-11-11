@@ -83,7 +83,7 @@ typedef struct BlockInfo BlockInfo;
    A pointer to the head of the free list in this implementation is
    always stored in the first word in the heap.  mem_heap_lo() returns
    a pointer to the first word in the heap, so we cast the result of
-   mem_heap_lo() to a BlockInfo** (a pointer to a pointer to
+   mem_heap_lo() to a BlockInfo** (a pointer to a pointer t
    BlockInfo) and dereference this to get a pointer to the first
    BlockInfo in the free list. */
 #define FREE_LIST_HEAD *((BlockInfo **)mem_heap_lo())
@@ -253,6 +253,8 @@ static void requestMoreSpace(size_t reqSize) {
     printf("ERROR: mem_sbrk failed in requestMoreSpace\n");
     exit(0);
   }
+
+  printf("TEST1\n");
   newBlock = (BlockInfo*)UNSCALED_POINTER_SUB(mem_sbrk_result, WORD_SIZE);
 
   /* initialize header, inherit TAG_PRECEDING_USED status from the
@@ -403,8 +405,10 @@ void* mm_malloc (size_t size) {
 
   ptrFreeBlock->sizeAndTags = reqSize | TAG_USED;
   
-  size_t difference = blockSize - reqSize;
-  requestMoreSpace(difference);
+  BlockInfo* newBlock;
+  newBlock = UNSCALED_POINTER_ADD(ptrFreeBlock, reqSize);
+  printf("%p\n", newBlock);
+  insertFreeBlock(newBlock);
 
   // BlockInfo* newFreeBlock;
   // printf("%d\n", newFreeBlock->sizeAndTags);
@@ -416,6 +420,7 @@ void* mm_malloc (size_t size) {
   
   //ptrFreeBlock->next = NULL;
   //ptrFreeBlock->prev = FREE_LIST_HEAD;
+  printf("giberish:\n");
   examine_heap();
   // ptrFreeBlock = searchFreeList(reqSize);
   // printf("newHeadSize:%d", ptrFreeBlock->sizeAndTags);
