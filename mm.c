@@ -277,6 +277,7 @@ static void requestMoreSpace(size_t reqSize) {
   // Add the new block to the free list and immediately coalesce newly
   // allocated memory space
   insertFreeBlock(newBlock);
+  printf("beforeCoallescing:%d\n", SIZE(newBlock->sizeAndTags));
   coalesceFreeBlock(newBlock);
 }
 
@@ -387,14 +388,14 @@ void* mm_malloc (size_t size) {
   /* ---------------------------------------------------------Started Coding Here---------------------------------------------------------------------*/
   
   // set freeBlock pointer to a free block with atleast required size
-  printf("reqSize:%d\n", reqSize);
-  printf("minBlockSize:%d\n", MIN_BLOCK_SIZE);
+  //printf("reqSize:%d\n", reqSize);
+  //printf("minBlockSize:%d\n", MIN_BLOCK_SIZE);
   ptrFreeBlock = searchFreeList(reqSize);
   if (ptrFreeBlock == NULL){
   	// if no free block of required size
   	requestMoreSpace(reqSize);
   	ptrFreeBlock = searchFreeList(reqSize);
-  	examine_heap();
+  	//examine_heap();
   	
   	//printf("%d\n", SIZE(ptrFreeBlock->sizeAndTags));
   	//printf("Free block of required size not found!");
@@ -408,15 +409,8 @@ void* mm_malloc (size_t size) {
   BlockInfo* newBlock;
   newBlock = UNSCALED_POINTER_ADD(ptrFreeBlock, reqSize);
   printf("%p\n", newBlock);
+  newBlock->sizeAndTags = blockSize - reqSize;
   insertFreeBlock(newBlock);
-
-  // BlockInfo* newFreeBlock;
-  // printf("%d\n", newFreeBlock->sizeAndTags);
-  // newFreeBlock->sizeAndTags = blockSize - reqSize;
-  // printf("afterSIZEANDTAGS\n");
-  // insertFreeBlock(newFreeBlock);
-  // printf("INSERTBLOCK\n");
-  // requestMoreSpace(blockSize-reqSize);
   
   //ptrFreeBlock->next = NULL;
   //ptrFreeBlock->prev = FREE_LIST_HEAD;
@@ -424,13 +418,12 @@ void* mm_malloc (size_t size) {
   examine_heap();
   // ptrFreeBlock = searchFreeList(reqSize);
   // printf("newHeadSize:%d", ptrFreeBlock->sizeAndTags);
-  
 
 
   // Implement mm_malloc.  You can change or remove any of the above
   // code.  It is included as a suggestion of where to start.
   // You will want to replace this return statement...
-  return ptrFreeBlock->next; 
+  return UNSCALED_POINTER_ADD(ptrFreeBlock, WORD_SIZE); 
 }
 
 /* Free the block referenced by ptr. */
