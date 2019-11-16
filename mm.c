@@ -413,17 +413,16 @@ void* mm_malloc (size_t size) {
   if(reqSize < blockSize){   //if malloc splits a free block, set size, bit 1 = 1, bit 0 = 0 of new block
 	
 	// BELOW IS THE CODE WE MOSTLY ALREADY HAD, BUT WE WERE ASSUMING THE FREE BLOCK ALWAYS SPLITS
-	
 	newBlock->sizeAndTags = blockSize - reqSize;				//set size
 	newBlock->sizeAndTags = ((newBlock->sizeAndTags) | 0b10);		//set the "prevTagBit" to 1
+	newBlock->next = UNSCALED_POINTER_SUB(newBlock, (blockSize - reqSize));		//set next of the new block to its next block
 	insertFreeBlock(newBlock);					//insert the split block
-  
   } else {		//if malloc is a perfect fit	  
 	  
-	  if((newBlock->sizeAndTags) & 0b01 == 1) { 			//if next block is malloced, do nothing
+	  if((newBlock->sizeAndTags) & 0b01 == 1) { 			//if prev block is malloced, do nothing
 			//wei this doesnt really make sense that im doing this, may be good for debugging to print in this case
 			//could definitely be removed
-	  } else {			//if next block is free, set bit 1 = 1
+	  } else {			//if prev block is free, set bit 1 = 1
 		newBlock->sizeAndTags = ((newBlock->sizeAndTags) | 0b10);		//set the "prevTagBit" to 1
 	  }
 	  
@@ -451,7 +450,28 @@ void mm_free (void *ptr) {
 
   // Implement mm_free.  You can change or remove the declaraions
   // above.  They are included as minor hints.
-
+  blockInfo = UNSCALED_POINTER_SUB(ptr, WORD_SIZE);		//ptr is pointer to payload NOT BLOCK, so subtract one word
+  
+  blockInfo->sizeAndTags = (blockInfo->sizeAndTags) | 0b1;		//set bit 0 to 0 to indicate free
+  
+  blockInfo->next->sizeAndTags = (blockInfo->next->sizeAndTags) | 0b10;		//since we just freed a block, set the next block's bit 1 to 0 to indicate free
+  
+  if((blockInfo->prev->sizeAndTags & 0b01) == 1){			//if prev block is free, set current block's bit 1 to 0
+	blockInfo->sizeAndTags = (blockInfo->sizeAndTags) | 0b01;
+  } else {			//if prev block is malloc'd, set current block's bit 1 to 1
+	blockInfo->sizeAndTags = (blockInfo->sizeAndTags) | 0b11;
+  }
+  
+  
+  
+  
+  
+  //ptr = (BlockInfo*)((int)ptr & -4); //obtain base address and cast block info????
+  //ptr->sizeAndTags = (ptr->sizeAndTags & -2);		//Set bit 0 to 0
+  
+  coalesceFreeBlock(ptr); //coalesce after we set free bits properly (coalesce will use the bit 0 and one to find blocks that can be combined)
+  
+  
 }
 
 
