@@ -418,7 +418,7 @@ void* mm_malloc (size_t size) {
 	
 	insertFreeBlock(newBlock);					//insert the split block
   } else {		//if malloc is a perfect fit	  
-	  //test comm
+	  
 	  if((newBlock->sizeAndTags) & 0b01 == 1) { 			//if prev block is malloced, do nothing
 			//wei this doesnt really make sense that im doing this, may be good for debugging to print in this case
 			//could definitely be removed
