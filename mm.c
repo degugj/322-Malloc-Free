@@ -415,10 +415,10 @@ void* mm_malloc (size_t size) {
 	// BELOW IS THE CODE WE MOSTLY ALREADY HAD, BUT WE WERE ASSUMING THE FREE BLOCK ALWAYS SPLITS
 	newBlock->sizeAndTags = blockSize - reqSize;				//set size
 	newBlock->sizeAndTags = ((newBlock->sizeAndTags) | 0b10);		//set the "prevTagBit" to 1
-	newBlock->next = UNSCALED_POINTER_SUB(newBlock, (blockSize - reqSize));		//set next of the new block to its next block
+	
 	insertFreeBlock(newBlock);					//insert the split block
   } else {		//if malloc is a perfect fit	  
-	  
+	  //test comm
 	  if((newBlock->sizeAndTags) & 0b01 == 1) { 			//if prev block is malloced, do nothing
 			//wei this doesnt really make sense that im doing this, may be good for debugging to print in this case
 			//could definitely be removed
@@ -451,7 +451,6 @@ void mm_free (void *ptr) {
   // Implement mm_free.  You can change or remove the declaraions
   // above.  They are included as minor hints.
   blockInfo = UNSCALED_POINTER_SUB(ptr, WORD_SIZE);		//ptr is pointer to payload NOT BLOCK, so subtract one word
-  
   blockInfo->sizeAndTags = (blockInfo->sizeAndTags) | 0b1;		//set bit 0 to 0 to indicate free
   
   blockInfo->next->sizeAndTags = (blockInfo->next->sizeAndTags) | 0b10;		//since we just freed a block, set the next block's bit 1 to 0 to indicate free
