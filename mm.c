@@ -409,8 +409,25 @@ void* mm_malloc (size_t size) {
   BlockInfo* newBlock;
   newBlock = UNSCALED_POINTER_ADD(ptrFreeBlock, reqSize);
   printf("%p\n", newBlock);
-  newBlock->sizeAndTags = blockSize - reqSize;
-  insertFreeBlock(newBlock);
+  
+  if(reqSize < blockSize){   //if malloc splits a free block, set size, bit 1 = 1, bit 0 = 0 of new block
+	
+	// BELOW IS THE CODE WE MOSTLY ALREADY HAD, BUT WE WERE ASSUMING THE FREE BLOCK ALWAYS SPLITS
+	
+	newBlock->sizeAndTags = blockSize - reqSize;				//set size
+	newBlock->sizeAndTags = ((newBlock->sizeAndTags) | 0b10);		//set the "prevTagBit" to 1
+	insertFreeBlock(newBlock);					//insert the split block
+  
+  } else {		//if malloc is a perfect fit	  
+	  
+	  if((newBlock->sizeAndTags) & 0b01 == 1) { 			//if next block is malloced, do nothing
+			//wei this doesnt really make sense that im doing this, may be good for debugging to print in this case
+			//could definitely be removed
+	  } else {			//if next block is free, set bit 1 = 1
+		newBlock->sizeAndTags = ((newBlock->sizeAndTags) | 0b10);		//set the "prevTagBit" to 1
+	  }
+	  
+  }
   
   //ptrFreeBlock->next = NULL;
   //ptrFreeBlock->prev = FREE_LIST_HEAD;
