@@ -448,22 +448,35 @@ void mm_free (void *ptr) {
   size_t payloadSize;
   BlockInfo * blockInfo;
   BlockInfo * followingBlock;
+  BlockInfo * boundaryTagPointer;
+
 
   // Implement mm_free.  You can change or remove the declaraions
   // above.  They are included as minor hints.
   blockInfo = UNSCALED_POINTER_SUB(ptr, WORD_SIZE);		//ptr is pointer to payload NOT BLOCK, so subtract one word
-  blockInfo->sizeAndTags = (blockInfo->sizeAndTags) | 0b1;		//set bit 0 to 0 to indicate free
+  blockInfo->sizeAndTags = (blockInfo->sizeAndTags) & -2;		//set bit 0 to 0 to indicate free
   
   blockInfo->next->sizeAndTags = (blockInfo->next->sizeAndTags) | 0b10;		//since we just freed a block, set the next block's bit 1 to 0 to indicate free
   
-  if((blockInfo->prev->sizeAndTags & 0b01) == 1){			//if prev block is free, set current block's bit 1 to 0
+  if((blockInfo->prev->sizeAndTags & 0b01) == 1){			//if prev block is free, set current block's bit 1 to 0 (do nothing)
 	blockInfo->sizeAndTags = (blockInfo->sizeAndTags) | 0b01;
   } else {			//if prev block is malloc'd, set current block's bit 1 to 1
 	blockInfo->sizeAndTags = (blockInfo->sizeAndTags) | 0b11;
   }
   
+  //BOUNDARY TAG...... RIP
   
+  boundaryTagPointer = UNSCALED_POINTER_SUB(blockInfo->next, WORD_SIZE);
   
+  boundaryTagPointer->sizeAndTags = blockInfo->sizeAndTags;		//copy blockInfo to boundary tag
+  boundaryTagPointer->next = blockInfo->prev;				//I think its the inverse judging by slide 17 lecture 25
+  boundaryTagPointer->next = blockInfo->next;
+  
+  if(((boundaryTagPointer->prev->sizeAndTags) & 0b01) == 1){  //if boundary prev block (header's next block) is free, set bit 1 of boundary tag to 0
+	boundaryTagPointer->sizeAndTags = (boundaryTagPointer->sizeAndTags) | 0b00;
+  } else {		//if prev block is allocated, set bit 1 of boundary tag to 1
+	boundaryTagPointer->sizeAndTags = (boundaryTagPointer->sizeAndTags) | 0b10;
+  }
   
   
   //ptr = (BlockInfo*)((int)ptr & -4); //obtain base address and cast block info????
