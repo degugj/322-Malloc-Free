@@ -400,20 +400,20 @@ void* mm_malloc (size_t size) {
   	//printf("%d\n", SIZE(ptrFreeBlock->sizeAndTags));
   	//printf("Free block of required size not found!");
   }
-  printf("adklfjeioajdklfa \n");
-  blockSize = SIZE(ptrFreeBlock->sizeAndTags);
-  //set the block's header to required size and bit mask to declare used block
 
+  blockSize = SIZE(ptrFreeBlock->sizeAndTags);
+  
+  //set the block's header to required size and bit mask to declare used block
   ptrFreeBlock->sizeAndTags = reqSize | TAG_USED;
   
   BlockInfo* newBlock;
-newBlock = UNSCALED_POINTER_ADD(ptrFreeBlock, reqSize);
+  newBlock = UNSCALED_POINTER_ADD(ptrFreeBlock, reqSize);
   
   if(reqSize < blockSize){   //if malloc splits a free block, set size, bit 1 = 1, bit 0 = 0 of new block
 	
 	// BELOW IS THE CODE WE MOSTLY ALREADY HAD, BUT WE WERE ASSUMING THE FREE BLOCK ALWAYS SPLITS
 	
-	printf("%p\n", newBlock);
+	//printf("%p\n", newBlock);
 	newBlock->sizeAndTags = blockSize - reqSize;				//set size
 	newBlock->sizeAndTags = ((newBlock->sizeAndTags) | 0b10);		//set the "prevTagBit" to 1
 	
@@ -428,11 +428,14 @@ newBlock = UNSCALED_POINTER_ADD(ptrFreeBlock, reqSize);
 	  }
 	  
   }
-  
+
+  removeFreeBlock(ptrFreeBlock);
+  examine_heap();
+  printf("ptr:%p\n", ptrFreeBlock);
+  printf("next:%p\n", ptrFreeBlock->next);
   //ptrFreeBlock->next = NULL;
   //ptrFreeBlock->prev = FREE_LIST_HEAD;
-  printf("giberish:\n");
-  examine_heap();
+  //examine_heap();
   // ptrFreeBlock = searchFreeList(reqSize);
   // printf("newHeadSize:%d", ptrFreeBlock->sizeAndTags);
 
@@ -448,42 +451,70 @@ void mm_free (void *ptr) {
   size_t payloadSize;
   BlockInfo * blockInfo;
   BlockInfo * followingBlock;
-  BlockInfo * boundaryTagPointer;
-
-
+  
   // Implement mm_free.  You can change or remove the declaraions
   // above.  They are included as minor hints.
   blockInfo = UNSCALED_POINTER_SUB(ptr, WORD_SIZE);		//ptr is pointer to payload NOT BLOCK, so subtract one word
-  blockInfo->sizeAndTags = (blockInfo->sizeAndTags) & -2;		//set bit 0 to 0 to indicate free
+  payloadSize = SIZE(blockInfo->sizeAndTags) - WORD_SIZE;
   
+  blockInfo->sizeAndTags = (blockInfo->sizeAndTags) & 0xfffffffe;		//set bit 0 to 0 to indicate free
+  examine_heap();
+
+
+  // followingBlock = blockInfo->next;
+  // while (followingBlock != NULL){
+  // 	if ((followingBlock->sizeAndTags & 0x00000001) == 1) {
+  //  		break;
+  // 	}
+  // 	followingBlock = followingBlock->next;
+  // }
+  // blockInfo->next = followingBlock;
+
+  // followingBlock = blockInfo->prev;
+  // while (followingBlock != NULL){
+  // 	if ((followingBlock->sizeAndTags & 0x00000001) == 1) {
+  //  		break;
+  // 	}
+  // 	followingBlock = followingBlock->prev;
+  // }
+  // blockInfo->prev = followingBlock;
+
+
   blockInfo->next->sizeAndTags = (blockInfo->next->sizeAndTags) | 0b10;		//since we just freed a block, set the next block's bit 1 to 0 to indicate free
-  
-  if((blockInfo->prev->sizeAndTags & 0b01) == 1){			//if prev block is free, set current block's bit 1 to 0 (do nothing)
-	blockInfo->sizeAndTags = (blockInfo->sizeAndTags) | 0b01;
+
+  if((blockInfo->next->sizeAndTags & 0b01) == 1){			//if prev block is free, set current block's bit 1 to 0 (do nothing)
+	printf("HELLO\n");
+	printf("%d\n", SIZE(blockInfo->sizeAndTags));
+	blockInfo->sizeAndTags = (blockInfo->sizeAndTags) | TAG_PRECEDING_USED;
+	
   } else {			//if prev block is malloc'd, set current block's bit 1 to 1
-	blockInfo->sizeAndTags = (blockInfo->sizeAndTags) | 0b11;
+	blockInfo->sizeAndTags = (blockInfo->sizeAndTags) & 0xfffffffa; //0b11;
   }
   
+
+
   //BOUNDARY TAG...... RIP
   
+  size_t * boundaryTagPointer;
   boundaryTagPointer = UNSCALED_POINTER_SUB(blockInfo->next, WORD_SIZE);
+  boundaryTagPointer = blockInfo->sizeAndTags;
+ //  boundaryTagPointer = UNSCALED_POINTER_SUB(blockInfo->next, WORD_SIZE);
   
-  boundaryTagPointer->sizeAndTags = blockInfo->sizeAndTags;		//copy blockInfo to boundary tag
-  boundaryTagPointer->next = blockInfo->prev;				//I think its the inverse judging by slide 17 lecture 25
-  boundaryTagPointer->next = blockInfo->next;
+ //  boundaryTagPointer->sizeAndTags = blockInfo->sizeAndTags;		//copy blockInfo to boundary tag
+ //  boundaryTagPointer->next = blockInfo->prev;				//I think its the inverse judging by slide 17 lecture 25
+ //  boundaryTagPointer->next = blockInfo->next;
   
-  if(((boundaryTagPointer->prev->sizeAndTags) & 0b01) == 1){  //if boundary prev block (header's next block) is free, set bit 1 of boundary tag to 0
-	boundaryTagPointer->sizeAndTags = (boundaryTagPointer->sizeAndTags) | 0b00;
-  } else {		//if prev block is allocated, set bit 1 of boundary tag to 1
-	boundaryTagPointer->sizeAndTags = (boundaryTagPointer->sizeAndTags) | 0b10;
-  }
+ //  if(((boundaryTagPointer->prev->sizeAndTags) & 0b01) == 1){  //if boundary prev block (header's next block) is free, set bit 1 of boundary tag to 0
+	// boundaryTagPointer->sizeAndTags = (boundaryTagPointer->sizeAndTags) | 0b00;
+ //  } else {		//if prev block is allocated, set bit 1 of boundary tag to 1
+	// boundaryTagPointer->sizeAndTags = (boundaryTagPointer->sizeAndTags) | 0b10;
+ //  }
   
   
   //ptr = (BlockInfo*)((int)ptr & -4); //obtain base address and cast block info????
   //ptr->sizeAndTags = (ptr->sizeAndTags & -2);		//Set bit 0 to 0
   
-  coalesceFreeBlock(ptr); //coalesce after we set free bits properly (coalesce will use the bit 0 and one to find blocks that can be combined)
-  
+  coalesceFreeBlock(blockInfo); //coalesce after we set free bits properly (coalesce will use the bit 0 and one to find blocks that can be combined)
   
 }
 
