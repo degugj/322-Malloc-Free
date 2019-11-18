@@ -393,53 +393,55 @@ void* mm_malloc (size_t size) {
   // set freeBlock pointer to a free block with atleast required size
   ptrFreeBlock = searchFreeList(reqSize);
   if (ptrFreeBlock == NULL){
-  	// if no free block of required size
+  	// if no free block of required size, request more space
   	requestMoreSpace(reqSize);
   	ptrFreeBlock = searchFreeList(reqSize);
   }
 
+  //remove freeblock from the free list
   removeFreeBlock(ptrFreeBlock);
-  blockSize = SIZE(ptrFreeBlock->sizeAndTags);
-  
-  //set the block's header to required size and bit mask to declare used block
 
+  blockSize = SIZE(ptrFreeBlock->sizeAndTags);
+
+  //create new BlockInfo struct for split block
   BlockInfo* newBlock;
   newBlock = (BlockInfo*)UNSCALED_POINTER_ADD(ptrFreeBlock, reqSize);
+
   precedingBlockUseTag = ptrFreeBlock->sizeAndTags & TAG_PRECEDING_USED;
   
-  if(blockSize - reqSize >= MIN_BLOCK_SIZE){   //if malloc splits a free block, set size, bit 1 = 1, bit 0 = 0 of new block
+  //if malloc splits a free block, set size, bit 1 = 1, bit 0 = 0 of new block
+  if(blockSize - reqSize >= MIN_BLOCK_SIZE){   
 	
-	
+	//set size and preceding tag used of split block
+	newBlock->sizeAndTags = (blockSize - reqSize) | TAG_PRECEDING_USED;
+
+	//split block's boundary tag
 	size_t * boundaryTagPointer;
-	// BELOW IS THE CODE WE MOSTLY ALREADY HAD, BUT WE WERE ASSUMING THE FREE BLOCK ALWAYS SPLITS
-
-	newBlock->sizeAndTags = (blockSize - reqSize) | TAG_PRECEDING_USED;				//set size
-
 	boundaryTagPointer = UNSCALED_POINTER_ADD(newBlock, SIZE(newBlock->sizeAndTags) - WORD_SIZE);
 	*boundaryTagPointer = newBlock->sizeAndTags | TAG_PRECEDING_USED;
 
-	insertFreeBlock(newBlock);					//insert the split block
+	//insert the split block and coalesce
+	insertFreeBlock(newBlock);					
   	coalesceFreeBlock(newBlock);
-	 //coalesce after we set free bits properly (coalesce will use the bit 0 and one to find blocks that can be combined)
-  	
 	
+	//set size and tags of block we just allocated to indicate used 
 	ptrFreeBlock->sizeAndTags = reqSize | TAG_USED;
 	ptrFreeBlock->sizeAndTags = ptrFreeBlock->sizeAndTags | precedingBlockUseTag;
 
-  } else {		//if malloc is a perfect fit   KEY: NEWBLOCK WILL BE A POINTER TO THE NEXT BLOCK  
-	  
+  } else {  
+	//if malloc gives a perfect fit block, or greater by no more than 15 bits
+
+	//set size and tags of block block we just allocated
 	ptrFreeBlock->sizeAndTags = blockSize | TAG_USED | precedingBlockUseTag;
+	
+	//set next block's tags to indicate our block is allocated 
 	BlockInfo * nextBlockPtr;
 	nextBlockPtr = (BlockInfo*)UNSCALED_POINTER_ADD(ptrFreeBlock, blockSize);
 	nextBlockPtr->sizeAndTags = nextBlockPtr->sizeAndTags | TAG_PRECEDING_USED;
   	
   }
 
-
-  // Implement mm_malloc.  You can change or remove any of the above
-  // code.  It is included as a suggestion of where to start.
-  // You will want to replace this return statement...
-
+  //return a pointer to the payload of the allocated block
   return UNSCALED_POINTER_ADD(ptrFreeBlock, WORD_SIZE); 
 }
 
