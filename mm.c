@@ -448,25 +448,37 @@ void* mm_malloc (size_t size) {
 /* Free the block referenced by ptr. */
 void mm_free (void *ptr) {
 
+  //initialize blocks for freeing block and following block
   BlockInfo * blockInfo;
   BlockInfo * followingBlock;
   
   // Implement mm_free.  You can change or remove the declaraions
   // above.  They are included as minor hints.
 
-  blockInfo = (BlockInfo*)UNSCALED_POINTER_SUB(ptr, WORD_SIZE);		//ptr is pointer to payload NOT BLOCK, so subtract one word
+  //obtain current block pointer by subtracting one word from payload address (ptr is pointer to payload NOT BLOCK)
+  blockInfo = (BlockInfo*)UNSCALED_POINTER_SUB(ptr, WORD_SIZE);
  
-  blockInfo->sizeAndTags = (blockInfo->sizeAndTags) & (~TAG_USED);		//set bit 0 to 0 to indicate free
+  //set current block bit 0 to 0 to indicate that it is now free
+  blockInfo->sizeAndTags = (blockInfo->sizeAndTags) & (~TAG_USED);
   
+  //obtain the adjacent block by adding our current block size to the header pointer
   followingBlock = (BlockInfo*)UNSCALED_POINTER_ADD(blockInfo, SIZE(blockInfo->sizeAndTags));
+  
+  //set the following block's bit 1 to 0, because we have free'd its previous block
   followingBlock->sizeAndTags = followingBlock->sizeAndTags & (~TAG_PRECEDING_USED);
-
+	
+  //initialize boundary tag for current block
   size_t * boundaryTagPointer;
+  
+  //obtan the address of the boundary tag by adding our payload (block size - one word) to our header pointer
   boundaryTagPointer = UNSCALED_POINTER_ADD(blockInfo, SIZE(blockInfo->sizeAndTags) - WORD_SIZE);
+  
+  //copy haeder to footer
   *boundaryTagPointer = blockInfo->sizeAndTags;
   
+  //insert and coalesce the block after satisfyng all tags
   insertFreeBlock(blockInfo);
-  coalesceFreeBlock(blockInfo); //coalesce after we set free bits properly (coalesce will use the bit 0 and one to find blocks that can be combined)
+  coalesceFreeBlock(blockInfo);
 }
 
 
