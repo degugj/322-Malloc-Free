@@ -127,6 +127,7 @@ typedef struct BlockInfo BlockInfo;
    of the previous block from its boundary tag */
 #define TAG_PRECEDING_USED 2
 
+static void examine_heap();
 
 /* Find a free block of the requested size in the free list.  Returns
    NULL if no free block is large enough. */
@@ -182,6 +183,8 @@ static void coalesceFreeBlock(BlockInfo* oldBlock) {
   BlockInfo *blockCursor;
   BlockInfo *newBlock;
   BlockInfo *freeBlock;
+
+  printf("%p\n", oldBlock);
   // size of old block
   size_t oldSize = SIZE(oldBlock->sizeAndTags);
   // running sum to be size of final coalesced block
@@ -189,10 +192,17 @@ static void coalesceFreeBlock(BlockInfo* oldBlock) {
 
   // Coalesce with any preceding free block
   blockCursor = oldBlock;
-  while ((blockCursor->sizeAndTags & TAG_PRECEDING_USED)==0) { 
+  printf("INSIDECOALESCE\n");
+  printf("%d\n", blockCursor->sizeAndTags);
+  while ((blockCursor->sizeAndTags & TAG_PRECEDING_USED)==0) {
+
+  	//if blockCursor is header
+	if (blockCursor->prev == NULL){
+		break;
+	}
+
     // While the block preceding this one in memory (not the
     // prev. block in the free list) is free:
-
     // Get the size of the previous block from its boundary tag.
     size_t size = SIZE(*((size_t*)UNSCALED_POINTER_SUB(blockCursor, WORD_SIZE)));
     // Use this size to find the block info for that block.
@@ -211,7 +221,7 @@ static void coalesceFreeBlock(BlockInfo* oldBlock) {
   blockCursor = (BlockInfo*)UNSCALED_POINTER_ADD(oldBlock, oldSize);
   while ((blockCursor->sizeAndTags & TAG_USED)==0) {
     // While the block is free:
-
+  	//printf("INSIDECOALESCE\n");
     size_t size = SIZE(blockCursor->sizeAndTags);
     // Remove it from the free list.
     removeFreeBlock(blockCursor);
@@ -219,7 +229,7 @@ static void coalesceFreeBlock(BlockInfo* oldBlock) {
     newSize += size;
     blockCursor = (BlockInfo*)UNSCALED_POINTER_ADD(blockCursor, size);
   }
-  
+  //printf("INSIDECOALESCE\n");
   // If the block actually grew, remove the old entry from the free
   // list and add the new entry.
   if (newSize != oldSize) {
@@ -277,7 +287,7 @@ static void requestMoreSpace(size_t reqSize) {
   // Add the new block to the free list and immediately coalesce newly
   // allocated memory space
   insertFreeBlock(newBlock);
-  printf("beforeCoallescing:%d\n", SIZE(newBlock->sizeAndTags));
+  examine_heap();
   coalesceFreeBlock(newBlock);
 }
 
@@ -401,6 +411,7 @@ void* mm_malloc (size_t size) {
   	//printf("Free block of required size not found!");
   }
 
+  examine_heap();
   blockSize = SIZE(ptrFreeBlock->sizeAndTags);
   
   //set the block's header to required size and bit mask to declare used block
@@ -430,7 +441,6 @@ void* mm_malloc (size_t size) {
   }
 
   removeFreeBlock(ptrFreeBlock);
-  examine_heap();
   printf("ptr:%p\n", ptrFreeBlock);
   printf("next:%p\n", ptrFreeBlock->next);
   //ptrFreeBlock->next = NULL;
@@ -454,14 +464,38 @@ void mm_free (void *ptr) {
   
   // Implement mm_free.  You can change or remove the declaraions
   // above.  They are included as minor hints.
+
   blockInfo = UNSCALED_POINTER_SUB(ptr, WORD_SIZE);		//ptr is pointer to payload NOT BLOCK, so subtract one word
   payloadSize = SIZE(blockInfo->sizeAndTags) - WORD_SIZE;
   
+  printf("blockInfo:%p", blockInfo);
+
   blockInfo->sizeAndTags = (blockInfo->sizeAndTags) & 0xfffffffe;		//set bit 0 to 0 to indicate free
+  
+  followingBlock = UNSCALED_POINTER_ADD(blockInfo, SIZE(blockInfo->sizeAndTags));
+
+  
+  while(followingBlock != NULL && (followingBlock->sizeAndTags & 0b01) == 1){
+  	followingBlock = UNSCALED_POINTER_ADD(followingBlock, SIZE(followingBlock->sizeAndTags));
+  }
+
+  if (followingBlock == NULL){
+  	blockInfo->next = followingBlock;
+  } else {
+
+  	blockInfo->next = followingBlock;
+  	blockInfo->prev = followingBlock->prev;
+  	followingBlock->prev->next = blockInfo;
+  	followingBlock->prev = blockInfo;
+  
+  }
+  
+
+  
   examine_heap();
 
 
-  // followingBlock = blockInfo->next;
+  
   // while (followingBlock != NULL){
   // 	if ((followingBlock->sizeAndTags & 0x00000001) == 1) {
   //  		break;
@@ -479,16 +513,17 @@ void mm_free (void *ptr) {
   // }
   // blockInfo->prev = followingBlock;
 
+  if (blockInfo->next != NULL){
+  	blockInfo->next->sizeAndTags = (blockInfo->next->sizeAndTags) | 0b10;		//since we just freed a block, set the next block's bit 1 to 0 to indicate free
+  }
 
-  blockInfo->next->sizeAndTags = (blockInfo->next->sizeAndTags) | 0b10;		//since we just freed a block, set the next block's bit 1 to 0 to indicate free
-
-  if((blockInfo->next->sizeAndTags & 0b01) == 1){			//if prev block is free, set current block's bit 1 to 0 (do nothing)
-	printf("HELLO\n");
+  if((blockInfo->prev->sizeAndTags & 0b01) == 1){			//if prev block is free, set current block's bit 1 to 0 (do nothing)
+	
 	printf("%d\n", SIZE(blockInfo->sizeAndTags));
 	blockInfo->sizeAndTags = (blockInfo->sizeAndTags) | TAG_PRECEDING_USED;
 	
   } else {			//if prev block is malloc'd, set current block's bit 1 to 1
-	blockInfo->sizeAndTags = (blockInfo->sizeAndTags) & 0xfffffffa; //0b11;
+	blockInfo->sizeAndTags = (blockInfo->sizeAndTags) & 0xfffffffd; //0b11;
   }
   
 
