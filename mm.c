@@ -458,6 +458,8 @@ void* mm_malloc (size_t size) {
 
 /* Free the block referenced by ptr. */
 void mm_free (void *ptr) {
+  printf("\n------------------------------------------\n");
+  examine_heap();
   size_t payloadSize;
   BlockInfo * blockInfo;
   BlockInfo * followingBlock;
@@ -468,7 +470,7 @@ void mm_free (void *ptr) {
   blockInfo = UNSCALED_POINTER_SUB(ptr, WORD_SIZE);		//ptr is pointer to payload NOT BLOCK, so subtract one word
   payloadSize = SIZE(blockInfo->sizeAndTags) - WORD_SIZE;
   
-  printf("blockInfo:%p", blockInfo);
+  printf("blockInfo:%p\n", blockInfo);
 
   blockInfo->sizeAndTags = (blockInfo->sizeAndTags) & 0xfffffffe;		//set bit 0 to 0 to indicate free
   
@@ -478,7 +480,12 @@ void mm_free (void *ptr) {
   while(followingBlock != NULL && (followingBlock->sizeAndTags & 0b01) == 1){
   	followingBlock = UNSCALED_POINTER_ADD(followingBlock, SIZE(followingBlock->sizeAndTags));
   }
-
+  followingBlock = UNSCALED_POINTER_SUB(followingBlock, SIZE(followingBlock->sizeAndTags));
+  //followingBlock = UNSCALED_POINTER_SUB(followingBlock, );
+  
+  
+  examine_heap();
+  printf("FOLLOWING BLOCK: %p\n",followingBlock);
   if (followingBlock == NULL){
   	blockInfo->next = followingBlock;
   } else {
@@ -490,11 +497,8 @@ void mm_free (void *ptr) {
   
   }
   
-
   
-  examine_heap();
-
-
+  
   
   // while (followingBlock != NULL){
   // 	if ((followingBlock->sizeAndTags & 0x00000001) == 1) {
@@ -550,7 +554,9 @@ void mm_free (void *ptr) {
   //ptr->sizeAndTags = (ptr->sizeAndTags & -2);		//Set bit 0 to 0
   
   coalesceFreeBlock(blockInfo); //coalesce after we set free bits properly (coalesce will use the bit 0 and one to find blocks that can be combined)
-  
+  examine_heap();
+
+  printf("\n------------------------------------------\n");
 }
 
 
