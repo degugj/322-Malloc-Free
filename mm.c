@@ -192,14 +192,13 @@ static void coalesceFreeBlock(BlockInfo* oldBlock) {
 
   // Coalesce with any preceding free block
   blockCursor = oldBlock;
-  printf("INSIDECOALESCE\n");
-  printf("%d\n", blockCursor->sizeAndTags);
+  printf("INSIDECOALESCE:%p\n", oldBlock);
   while ((blockCursor->sizeAndTags & TAG_PRECEDING_USED)==0) {
 
   	//if blockCursor is header
-	if (blockCursor->prev == NULL){
-		break;
-	}
+	// if (blockCursor == FREE_LIST_HEAD){
+	// 	break;
+	// }
 
     // While the block preceding this one in memory (not the
     // prev. block in the free list) is free:
@@ -264,7 +263,6 @@ static void requestMoreSpace(size_t reqSize) {
     exit(0);
   }
 
-  printf("TEST1\n");
   newBlock = (BlockInfo*)UNSCALED_POINTER_SUB(mem_sbrk_result, WORD_SIZE);
 
   /* initialize header, inherit TAG_PRECEDING_USED status from the
@@ -427,8 +425,8 @@ void* mm_malloc (size_t size) {
 	//printf("%p\n", newBlock);
 	newBlock->sizeAndTags = blockSize - reqSize;				//set size
 	newBlock->sizeAndTags = ((newBlock->sizeAndTags) | 0b10);		//set the "prevTagBit" to 1
-	
 	insertFreeBlock(newBlock);					//insert the split block
+
   } else {		//if malloc is a perfect fit   KEY: NEWBLOCK WILL BE A POINTER TO THE NEXT BLOCK  
 	  
 	  if((newBlock->sizeAndTags) & 0b10 == 1) { 			// prev block is malloc'd, do nothing
@@ -459,7 +457,6 @@ void* mm_malloc (size_t size) {
 /* Free the block referenced by ptr. */
 void mm_free (void *ptr) {
   printf("\n------------------------------------------\n");
-  examine_heap();
   size_t payloadSize;
   BlockInfo * blockInfo;
   BlockInfo * followingBlock;
@@ -467,6 +464,7 @@ void mm_free (void *ptr) {
   // Implement mm_free.  You can change or remove the declaraions
   // above.  They are included as minor hints.
 
+  BlockInfo *nil = NULL;
   blockInfo = UNSCALED_POINTER_SUB(ptr, WORD_SIZE);		//ptr is pointer to payload NOT BLOCK, so subtract one word
   payloadSize = SIZE(blockInfo->sizeAndTags) - WORD_SIZE;
   
@@ -477,27 +475,30 @@ void mm_free (void *ptr) {
   followingBlock = UNSCALED_POINTER_ADD(blockInfo, SIZE(blockInfo->sizeAndTags));
 
   
-  while(followingBlock != NULL && (followingBlock->sizeAndTags & 0b01) == 1){
+  while(followingBlock != nil && (followingBlock->sizeAndTags & 0b01) == 1){
   	followingBlock = UNSCALED_POINTER_ADD(followingBlock, SIZE(followingBlock->sizeAndTags));
   }
-  followingBlock = UNSCALED_POINTER_SUB(followingBlock, SIZE(followingBlock->sizeAndTags));
+  //followingBlock = UNSCALED_POINTER_SUB(followingBlock, SIZE(followingBlock->sizeAndTags));
   //followingBlock = UNSCALED_POINTER_SUB(followingBlock, );
   
   
-  examine_heap();
   printf("FOLLOWING BLOCK: %p\n",followingBlock);
-  if (followingBlock == NULL){
-  	blockInfo->next = followingBlock;
+  if (followingBlock == nil){
+  	blockInfo->prev = nil;
+  	insertFreeBlock(blockInfo);
   } else {
 
-  	blockInfo->next = followingBlock;
-  	blockInfo->prev = followingBlock->prev;
-  	followingBlock->prev->next = blockInfo;
-  	followingBlock->prev = blockInfo;
-  
+  	if (followingBlock->next == nil){
+  		blockInfo->next = nil;
+  	}
+  	//printf("followingblockNEXT:%p", followingBlock->next);
+  	blockInfo->prev = followingBlock;
+  	if(followingBlock->next != nil){
+  		followingBlock->next->prev = blockInfo;	
+  	}
+  	followingBlock->next = blockInfo;
+
   }
-  
-  
   
   
   // while (followingBlock != NULL){
@@ -517,26 +518,39 @@ void mm_free (void *ptr) {
   // }
   // blockInfo->prev = followingBlock;
 
-  if (blockInfo->next != NULL){
-  	blockInfo->next->sizeAndTags = (blockInfo->next->sizeAndTags) | 0b10;		//since we just freed a block, set the next block's bit 1 to 0 to indicate free
+  size_t boundaryTagPointer;
+  boundaryTagPointer = UNSCALED_POINTER_SUB(blockInfo->prev, WORD_SIZE);
+  boundaryTagPointer = blockInfo->sizeAndTags;
+  printf("%p\n", boundaryTagPointer);
+  printf("%p\n", blockInfo->sizeAndTags);
+  if (boundaryTagPointer == nil){
+
+  } else {
+  	if (boundaryTagPointer & 0b01 == 1){
+		blockInfo->sizeAndTags = (blockInfo->sizeAndTags) | TAG_PRECEDING_USED;
+  	} else{
+  		blockInfo->sizeAndTags = (blockInfo->sizeAndTags) & 0xfffffffd;
+  	}
   }
 
-  if((blockInfo->prev->sizeAndTags & 0b01) == 1){			//if prev block is free, set current block's bit 1 to 0 (do nothing)
+
+ //  if (blockInfo->next != nil){
+ //  	blockInfo->next->sizeAndTags = (blockInfo->next->sizeAndTags) & 0xfffffffd;		//since we just freed a block, set the next block's bit 1 to 0 to indicate free
+ //  }
+
+ //  if(blockInfo->prev == NULL){			//if prev block is allocated, set current block's bit 1 to 1
 	
-	printf("%d\n", SIZE(blockInfo->sizeAndTags));
-	blockInfo->sizeAndTags = (blockInfo->sizeAndTags) | TAG_PRECEDING_USED;
-	
-  } else {			//if prev block is malloc'd, set current block's bit 1 to 1
-	blockInfo->sizeAndTags = (blockInfo->sizeAndTags) & 0xfffffffd; //0b11;
-  }
+ //  } else if((blockInfo->prev->sizeAndTags & 0b01) == 1){			//if prev block is allocated, set current block's bit 1 to 1
+	// blockInfo->sizeAndTags = (blockInfo->sizeAndTags) | TAG_PRECEDING_USED;
+ //  } else {
+ //  	blockInfo->sizeAndTags = (blockInfo->sizeAndTags) & 0xfffffffd; //0b11;
+ //  }
   
 
 
   //BOUNDARY TAG...... RIP
   
-  size_t * boundaryTagPointer;
-  boundaryTagPointer = UNSCALED_POINTER_SUB(blockInfo->next, WORD_SIZE);
-  boundaryTagPointer = blockInfo->sizeAndTags;
+ 
  //  boundaryTagPointer = UNSCALED_POINTER_SUB(blockInfo->next, WORD_SIZE);
   
  //  boundaryTagPointer->sizeAndTags = blockInfo->sizeAndTags;		//copy blockInfo to boundary tag
@@ -552,9 +566,10 @@ void mm_free (void *ptr) {
   
   //ptr = (BlockInfo*)((int)ptr & -4); //obtain base address and cast block info????
   //ptr->sizeAndTags = (ptr->sizeAndTags & -2);		//Set bit 0 to 0
-  
-  coalesceFreeBlock(blockInfo); //coalesce after we set free bits properly (coalesce will use the bit 0 and one to find blocks that can be combined)
+  printf("blockINFO:%p\n", blockInfo);
   examine_heap();
+  coalesceFreeBlock(blockInfo); //coalesce after we set free bits properly (coalesce will use the bit 0 and one to find blocks that can be combined)
+
 
   printf("\n------------------------------------------\n");
 }
