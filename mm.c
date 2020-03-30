@@ -140,7 +140,7 @@ static void * searchFreeList(size_t reqSize) {
       freeBlock = freeBlock->next;
     }
   }
-  return NULL;
+  return -1;
 }
            
 /* Insert freeBlock at the head of the list.  (LIFO) */
